@@ -104,7 +104,10 @@
           throw new Error("Server error: " + response.status);
         }
 
-        const data = await response.json();
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        resultDiv.innerHTML = `<a href="${url}" download="compressed_images.zip">Download Compressed ZIP</a>`;
+
 
         if (data.downloadUrl) {
           resultDiv.innerHTML = `
