@@ -12,7 +12,7 @@
       justify-content: center; 
       align-items: center; 
       height: 100vh; 
-      margin: 0; 
+      margin: 0;
     }
     .container { 
       background: white; 
@@ -21,10 +21,6 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
       text-align: center; 
       width: 400px;
-    }
-    h1 { 
-      font-size: 20px; 
-      margin-bottom: 20px; 
     }
     .upload-box { 
       border: 2px dashed #aaa; 
@@ -41,13 +37,10 @@
       color: white; 
       border-radius: 4px; 
       cursor: pointer; 
-      font-size: 16px; 
+      font-size: 16px;
     }
     button:hover { background: #0056b3; }
-    .result { 
-      margin-top: 20px; 
-      font-size: 15px; 
-    }
+    .result { margin-top: 20px; font-size: 15px; }
     .download-link {
       display: inline-block;
       padding: 10px 20px;
@@ -57,13 +50,10 @@
       border-radius: 4px;
       margin-top: 10px;
     }
-    .download-link:hover {
-      background: #218838;
-    }
+    .download-link:hover { background: #218838; }
   </style>
 </head>
 <body>
-
   <div class="container">
     <h1>Upload Images or ZIP for Compression</h1>
     <form id="uploadForm">
@@ -73,49 +63,45 @@
         <button type="submit">Upload & Compress</button>
       </div>
     </form>
-
     <div class="result" id="result"></div>
   </div>
 
   <script>
     document.getElementById('uploadForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
+      e.preventDefault();
 
-  const files = document.getElementById('imageInput').files;
-  const resultDiv = document.getElementById('result');
+      const files = document.getElementById('imageInput').files;
+      const resultDiv = document.getElementById('result');
 
-  if (!files.length) {
-    resultDiv.innerHTML = '<span style="color:red;">Please select at least one file.</span>';
-    return;
-  }
+      if (!files.length) {
+        resultDiv.innerHTML = '<span style="color:red;">Please select at least one file.</span>';
+        return;
+      }
 
-  const formData = new FormData();
-  for (let i = 0; i < files.length; i++) {
-    formData.append('image', files[i]);
-  }
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('image', files[i]);
+      }
 
-  resultDiv.innerHTML = '⏳ Compressing... please wait.';
+      resultDiv.innerHTML = '⏳ Compressing... please wait.';
 
-  try {
-    const response = await fetch('/api/upload', { method: 'POST', body: formData });
+      try {
+        const response = await fetch('/api/upload', { method: 'POST', body: formData });
 
-    if (!response.ok) {
-      throw new Error("Server error: " + response.status);
-    }
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    resultDiv.innerHTML = `
-      ✅ Compression Complete!<br>
-      <a class="download-link" href="${url}" download="compressed_images.zip">Download Compressed ZIP</a>
-    `;
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
 
-  } catch (err) {
-    console.error(err);
-    resultDiv.innerHTML = `❌ Error: ${err.message}`;
-  }
-});
-
+        resultDiv.innerHTML = `
+          ✅ Compression Complete!<br>
+          <a class="download-link" href="${url}" download="compressed_images.zip">Download Compressed ZIP</a>
+        `;
+      } catch (err) {
+        console.error(err);
+        resultDiv.innerHTML = `❌ Error: ${err.message}`;
+      }
+    });
   </script>
 </body>
 </html>
