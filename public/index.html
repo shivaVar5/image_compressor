@@ -97,7 +97,8 @@
       resultDiv.innerHTML = '⏳ Compressing... please wait.';
 
       try {
-        const response = await fetch('/upload', { method: 'POST', body: formData });
+        const response = await fetch('/api/upload', { method: 'POST', body: formData });
+
         
         if (!response.ok) {
           throw new Error("Server error: " + response.status);
