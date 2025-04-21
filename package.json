@@ -1,0 +1,26 @@
+{
+  "name": "image-compressor",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "archiver": "^7.0.1",
+    "browser-image-compression": "^2.0.2",
+    "express": "^5.1.0",
+    "gifsicle": "^7.0.1",
+    "imagemin": "^9.0.1",
+    "imagemin-gifsicle": "^7.0.0",
+    "multer": "^1.4.5-lts.2",
+    "sharp": "^0.34.1",
+    "uuid": "^11.1.0"
+  }
+}

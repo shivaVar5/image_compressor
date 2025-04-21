@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image & Zip Compressor</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .upload-box { border: 2px dashed #aaa; padding: 30px; text-align: center; }
+    input[type="file"] { margin: 20px 0; }
+    .result { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Upload Images or Zip for Compression</h1>
+  <form id="uploadForm">
+    <div class="upload-box">
+      <input type="file" id="imageInput" name="image" multiple accept=".zip,image/*" />
+      <br>
+      <button type="submit">Upload & Compress</button>
+    </div>
+  </form>
+
+  <div class="result" id="result"></div>
+
+  <script>
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const files = document.getElementById('imageInput').files;
+      if (!files.length) return alert('Please select at least one file.');
+
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('image', files[i]);
+      }
+
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = 'Compressing... Please wait.';
+
+      try {
+        const response = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await response.json();
+
+        if (data.downloadUrl) {
+          resultDiv.innerHTML = `<a href="${data.downloadUrl}">Download Compressed ZIP</a>`;
+        } else {
+          resultDiv.innerHTML = 'Compression failed.';
+        }
+      } catch (err) {
+        console.error(err);
+        resultDiv.innerHTML = 'An error occurred!';
+      }
+    });
+  </script>
+</body>
+</html>
