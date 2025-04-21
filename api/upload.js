@@ -1,69 +1,52 @@
-const formidable = require('formidable');
-const fs = require('fs');
-const path = require('path');
-const archiver = require('archiver');
+const multer = require('multer');
 const sharp = require('sharp');
+const AdmZip = require('adm-zip');
+const path = require('path');
 
-export const config = { api: { bodyParser: false } };
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
-
-  const form = new formidable.IncomingForm({ multiples: true, uploadDir: '/tmp', keepExtensions: true });
-
-  form.parse(req, async (err, fields, files) => {
-    if (err) {
-      console.error('Form parse error:', err);
-      return res.status(500).send('Error parsing the files.');
-    }
-
-    const uploadedFiles = Array.isArray(files.image) ? files.image : [files.image];
-
-    if (!uploadedFiles.length) return res.status(400).send('No files uploaded.');
-
-    const zipPath = `/tmp/compressed_${Date.now()}.zip`;
-    const output = fs.createWriteStream(zipPath);
-    const archive = archiver('zip', { zlib: { level: 9 } });
-
-    output.on('close', () => {
-      res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', 'attachment; filename="compressed_images.zip"');
-      const readStream = fs.createReadStream(zipPath);
-      readStream.pipe(res).on('close', () => fs.unlinkSync(zipPath));  // clean after download
+function runMiddleware(req, res, fn) {
+  return new Promise((resolve, reject) => {
+    fn(req, res, (result) => {
+      if (result instanceof Error) return reject(result);
+      return resolve(result);
     });
-
-    archive.on('error', err => {
-      console.error('Archiving error:', err);
-      res.status(500).send('Error creating ZIP.');
-    });
-
-    archive.pipe(output);
-
-    for (let file of uploadedFiles) {
-      const originalName = path.basename(file.originalFilename || file.newFilename);
-      const ext = path.extname(originalName).toLowerCase();
-
-      try {
-        if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
-          const compressedPath = `/tmp/compressed_${Date.now()}_${originalName}`;
-
-          await sharp(file.filepath)
-            .resize({ width: 1920, withoutEnlargement: true })  // Only shrink large images
-            .jpeg({ quality: 75 })
-            .toFile(compressedPath);
-
-          archive.file(compressedPath, { name: originalName });
-
-          archive.on('end', () => fs.unlink(compressedPath, () => {}));
-        } else {
-          archive.file(file.filepath, { name: originalName });
-        }
-      } catch (error) {
-        console.error(`Error compressing ${originalName}:`, error);
-        archive.file(file.filepath, { name: originalName }); // fallback to original
-      }
-    }
-
-    await archive.finalize();
   });
 }
+
+module.exports = async (req, res) => {
+  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+
+  await runMiddleware(req, res, upload.array('image'));  // same field name as HTML
+
+  try {
+    const zip = new AdmZip();
+
+    for (const file of req.files) {
+      const ext = path.extname(file.originalname).toLowerCase();
+      let compressedBuffer;
+
+      if (['.jpg', '.jpeg'].includes(ext)) {
+        compressedBuffer = await sharp(file.buffer).jpeg({ quality: 50, mozjpeg: true }).toBuffer();
+      } else if (ext === '.png') {
+        compressedBuffer = await sharp(file.buffer).png({ compressionLevel: 9 }).toBuffer();
+      } else if (ext === '.webp') {
+        compressedBuffer = await sharp(file.buffer).webp({ quality: 50 }).toBuffer();
+      } else {
+        compressedBuffer = file.buffer;  // if not supported, add original
+      }
+
+      zip.addFile(file.originalname, compressedBuffer);
+    }
+
+    const zipBuffer = zip.toBuffer();
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="compressed_images.zip"');
+    res.status(200).send(zipBuffer);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Compression failed.');
+  }
+};
