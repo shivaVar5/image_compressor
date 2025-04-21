@@ -1,25 +1,25 @@
 const formidable = require('formidable');
 const fs = require('fs');
-const archiver = require('archiver');
 const path = require('path');
+const archiver = require('archiver');
 const sharp = require('sharp');
 
-export const config = {
-  api: { bodyParser: false }
-};
+export const config = { api: { bodyParser: false } };
 
-export default function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).send('Method Not Allowed');
-  }
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
   const form = new formidable.IncomingForm({ multiples: true, uploadDir: '/tmp', keepExtensions: true });
 
   form.parse(req, async (err, fields, files) => {
     if (err) {
-      console.error(err);
+      console.error('Form parse error:', err);
       return res.status(500).send('Error parsing the files.');
     }
+
+    const uploadedFiles = Array.isArray(files.image) ? files.image : [files.image];
+
+    if (!uploadedFiles.length) return res.status(400).send('No files uploaded.');
 
     const zipPath = `/tmp/compressed_${Date.now()}.zip`;
     const output = fs.createWriteStream(zipPath);
@@ -28,49 +28,39 @@ export default function handler(req, res) {
     output.on('close', () => {
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', 'attachment; filename="compressed_images.zip"');
-      fs.createReadStream(zipPath).pipe(res).on('finish', () => {
-        fs.unlinkSync(zipPath);
-      });
+      const readStream = fs.createReadStream(zipPath);
+      readStream.pipe(res).on('close', () => fs.unlinkSync(zipPath));  // clean after download
     });
 
     archive.on('error', err => {
-      console.error(err);
+      console.error('Archiving error:', err);
       res.status(500).send('Error creating ZIP.');
     });
 
     archive.pipe(output);
 
-    const uploadedFiles = Array.isArray(files.image) ? files.image : [files.image];
-
     for (let file of uploadedFiles) {
       const originalName = path.basename(file.originalFilename || file.newFilename);
       const ext = path.extname(originalName).toLowerCase();
 
-      // If it's an image, compress it using sharp
-      if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
-        const compressedPath = `/tmp/compressed_${Date.now()}_${originalName}`;
+      try {
+        if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
+          const compressedPath = `/tmp/compressed_${Date.now()}_${originalName}`;
 
-        try {
           await sharp(file.filepath)
-            .resize({ width: 1920 })  // downscale large images
-            .jpeg({ quality: 75 })    // adjust quality
+            .resize({ width: 1920, withoutEnlargement: true })  // Only shrink large images
+            .jpeg({ quality: 75 })
             .toFile(compressedPath);
 
           archive.file(compressedPath, { name: originalName });
 
-          // Clean up temp compressed image after archiving
-          archive.on('end', () => {
-            fs.unlinkSync(compressedPath);
-          });
-
-        } catch (err) {
-          console.error(`Failed to compress ${originalName}:`, err);
-          archive.file(file.filepath, { name: originalName });  // fallback: original
+          archive.on('end', () => fs.unlink(compressedPath, () => {}));
+        } else {
+          archive.file(file.filepath, { name: originalName });
         }
-
-      } else {
-        // If not an image, add the original file
-        archive.file(file.filepath, { name: originalName });
+      } catch (error) {
+        console.error(`Error compressing ${originalName}:`, error);
+        archive.file(file.filepath, { name: originalName }); // fallback to original
       }
     }
 
