@@ -79,49 +79,43 @@
 
   <script>
     document.getElementById('uploadForm').addEventListener('submit', async function(e) {
-      e.preventDefault();
+    e.preventDefault();
 
-      const files = document.getElementById('imageInput').files;
-      const resultDiv = document.getElementById('result');
-      
-      if (!files.length) {
-        resultDiv.innerHTML = '<span style="color:red;">Please select at least one file.</span>';
-        return;
-      }
+  const files = document.getElementById('imageInput').files;
+  const resultDiv = document.getElementById('result');
 
-      const formData = new FormData();
-      for (let i = 0; i < files.length; i++) {
-        formData.append('image', files[i]);
-      }
+  if (!files.length) {
+    resultDiv.innerHTML = '<span style="color:red;">Please select at least one file.</span>';
+    return;
+  }
 
-      resultDiv.innerHTML = '⏳ Compressing... please wait.';
+  const formData = new FormData();
+  for (let i = 0; i < files.length; i++) {
+    formData.append('image', files[i]);
+  }
 
-      try {
-        const response = await fetch('/api/upload', { method: 'POST', body: formData });
+  resultDiv.innerHTML = '⏳ Compressing... please wait.';
 
-        
-        if (!response.ok) {
-          throw new Error("Server error: " + response.status);
-        }
+  try {
+    const response = await fetch('/api/upload', { method: 'POST', body: formData });
 
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        resultDiv.innerHTML = `<a href="${url}" download="compressed_images.zip">Download Compressed ZIP</a>`;
+    if (!response.ok) {
+      throw new Error("Server error: " + response.status);
+    }
 
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    resultDiv.innerHTML = `
+      ✅ Compression Complete!<br>
+      <a class="download-link" href="${url}" download="compressed_images.zip">Download Compressed ZIP</a>
+    `;
 
-        if (data.downloadUrl) {
-          resultDiv.innerHTML = `
-            ✅ Compression Complete!<br>
-            <a class="download-link" href="${data.downloadUrl}">Download Compressed ZIP</a>
-          `;
-        } else {
-          resultDiv.innerHTML = '❌ Compression failed.';
-        }
-      } catch (err) {
-        console.error(err);
-        resultDiv.innerHTML = `❌ Error: ${err.message}`;
-      }
-    });
+  } catch (err) {
+    console.error(err);
+    resultDiv.innerHTML = `❌ Error: ${err.message}`;
+  }
+});
+
   </script>
 </body>
 </html>
