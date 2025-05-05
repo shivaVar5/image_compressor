@@ -26,32 +26,39 @@
   <script>
     document.getElementById('uploadForm').addEventListener('submit', async function(e) {
       e.preventDefault();
-
+  
       const files = document.getElementById('imageInput').files;
       if (!files.length) return alert('Please select at least one file.');
-
+  
       const formData = new FormData();
       for (let i = 0; i < files.length; i++) {
         formData.append('image', files[i]);
       }
-
+  
       const resultDiv = document.getElementById('result');
       resultDiv.innerHTML = 'Compressing... Please wait.';
-
+  
       try {
         const response = await fetch('/upload', { method: 'POST', body: formData });
-        const data = await response.json();
-
-        if (data.downloadUrl) {
-          resultDiv.innerHTML = `<a href="${data.downloadUrl}">Download Compressed ZIP</a>`;
-        } else {
-          resultDiv.innerHTML = 'Compression failed.';
+        const text = await response.text();
+  
+        try {
+          const data = JSON.parse(text);
+          if (data.downloadUrl) {
+            resultDiv.innerHTML = `<a href="${data.downloadUrl}">Download Compressed ZIP</a>`;
+          } else {
+            resultDiv.innerHTML = 'Compression failed.';
+          }
+        } catch (e) {
+          console.error('❌ Failed to parse server response:', text);
+          resultDiv.innerHTML = 'Server error: ' + text;
         }
       } catch (err) {
         console.error(err);
-        resultDiv.innerHTML = err;
+        resultDiv.innerHTML = 'Request failed: ' + err.message;
       }
     });
   </script>
+  
 </body>
 </html>

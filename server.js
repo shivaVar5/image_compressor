@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const multer = require('multer');
 const sharp = require('sharp');
@@ -39,45 +38,62 @@ app.post('/upload', upload.any(), async (req, res) => {
                     const imgExt = path.extname(img).toLowerCase();
 
                     if (!stat.isDirectory()) {
-                        if (['.jpg', '.jpeg'].includes(imgExt)) {
-                            await sharp(imgPath)
-                                .jpeg({ quality: 50, mozjpeg: true })
-                                .toFile(outputImgPath);
-                        } else if (imgExt === '.png') {
-                            await sharp(imgPath)
-                                .png({ compressionLevel: 9, quality: 50 })
-                                .toFile(outputImgPath);
-                        } else if (imgExt === '.webp') {
-                            await sharp(imgPath)
-                                .webp({ quality: 50 })
-                                .toFile(outputImgPath);
-                        } else {
-                            fs.copyFileSync(imgPath, outputImgPath);
+                        try {
+                            if (['.jpg', '.jpeg'].includes(imgExt)) {
+                                await sharp(imgPath)
+                                    .jpeg({ quality: 50, mozjpeg: true })
+                                    .toFile(outputImgPath);
+                            } else if (imgExt === '.png') {
+                                await sharp(imgPath)
+                                    .png({ compressionLevel: 9, quality: 50 }) // ✅ PNG quality
+                                    .toFile(outputImgPath);
+                            } else if (imgExt === '.webp') {
+                                await sharp(imgPath)
+                                    .webp({ quality: 50 })
+                                    .toFile(outputImgPath);
+                            } else {
+                                fs.copyFileSync(imgPath, outputImgPath);
+                            }
+                        } catch (imgErr) {
+                            console.warn(`⚠️ Skipping image ${img} due to error:`, imgErr.message);
                         }
                     }
                 }
+
                 fs.rmSync(extractedPath, { recursive: true, force: true });
+
             } else {
                 const stat = fs.lstatSync(file.path);
+
                 if (!stat.isDirectory()) {
-                    if (['.jpg', '.jpeg'].includes(ext)) {
-                        await sharp(file.path)
-                            .jpeg({ quality: 50, mozjpeg: true })
-                            .toFile(outputPath);
-                    } else if (ext === '.png') {
-                        await sharp(file.path)
-                            .png({ compressionLevel: 9, quality: 50 })
-                            .toFile(outputPath);
-                    } else if (ext === '.webp') {
-                        await sharp(file.path)
-                            .webp({ quality: 50 })
-                            .toFile(outputPath);
-                    } else {
-                        fs.copyFileSync(file.path, outputPath);
+                    try {
+                        if (['.jpg', '.jpeg'].includes(ext)) {
+                            await sharp(file.path)
+                                .jpeg({ quality: 50, mozjpeg: true })
+                                .toFile(outputPath);
+                        } else if (ext === '.png') {
+                            await sharp(file.path)
+                                .png({ compressionLevel: 9, quality: 50 }) // ✅ PNG quality
+                                .toFile(outputPath);
+                        } else if (ext === '.webp') {
+                            await sharp(file.path)
+                                .webp({ quality: 50 })
+                                .toFile(outputPath);
+                        } else {
+                            fs.copyFileSync(file.path, outputPath);
+                        }
+                    } catch (imgErr) {
+                        console.warn(`⚠️ Skipping file ${file.originalname} due to error:`, imgErr.message);
                     }
                 }
             }
-            fs.unlinkSync(file.path);
+
+            // Clean up uploaded file
+            try {
+                await fs.promises.unlink(file.path);
+            } catch (unlinkErr) {
+                console.warn(`⚠️ Failed to delete temp file ${file.path}:`, unlinkErr.message);
+            }
         }
 
         const compressedZip = new AdmZip();
@@ -85,9 +101,10 @@ app.post('/upload', upload.any(), async (req, res) => {
         compressedZip.writeZip(compressedZipPath);
 
         res.json({ downloadUrl: `/download/${path.basename(outputFolder)}` });
+
     } catch (err) {
-        console.error(err);
-        res.status(500).send('Compression failed');
+        console.error('🔥 Compression failed:', err);
+        res.status(500).json({ error: 'Compression failed', message: err.message });
     }
 });
 
@@ -100,4 +117,6 @@ app.get('/download/:folderId', (req, res) => {
     }
 });
 
-app.listen(3000, () => console.log('Server started at http://localhost:3000'));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
